@@ -6,7 +6,11 @@
       "Bash(do echo \"=== $dir ===\")",
       "Bash(ls:*)",
       "Bash(done)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(where python)"
     ],
     "deny": []
   }

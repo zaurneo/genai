@@ -7,6 +7,8 @@ import pandas as pd
 from mcp.server.fastmcp import FastMCP
 from ..stock_data_server.yahoo_client import YahooFinanceClient
 
+print("Initializing Technical Analysis Server...")
+
 # Initialize FastMCP instance
 mcp = FastMCP("technical_analysis")
 
@@ -432,4 +434,5 @@ async def _calculate_correlations(symbols: List[str], period: str) -> Dict[str, 
         return result
 
 if __name__ == "__main__":
+    # Run with default stdio transport for now
     mcp.run()

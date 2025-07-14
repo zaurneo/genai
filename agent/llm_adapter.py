@@ -24,11 +24,16 @@ class OpenAIProvider(LLMProvider):
         self.client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     
     async def complete(self, prompt: str, **kwargs) -> str:
+        # Handle response_format parameter - convert 'json' to 'json_object'
+        response_format = kwargs.get("response_format", "text")
+        if response_format == "json":
+            response_format = "json_object"
+        
         response = await self.client.chat.completions.create(
             model=kwargs.get("model", "gpt-4-turbo-preview"),
             messages=[{"role": "user", "content": prompt}],
             temperature=kwargs.get("temperature", 0.7),
-            response_format={"type": kwargs.get("response_format", "text")}
+            response_format={"type": response_format}
         )
         return response.choices[0].message.content
     

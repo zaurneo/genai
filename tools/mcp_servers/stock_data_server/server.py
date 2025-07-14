@@ -6,6 +6,8 @@ import json
 from mcp.server.fastmcp import FastMCP
 from .yahoo_client import YahooFinanceClient
 
+print("Initializing Stock Data Server...")
+
 # Initialize FastMCP instance
 mcp = FastMCP("stock_data")
 
@@ -170,4 +172,5 @@ async def get_financials(
             }
 
 if __name__ == "__main__":
+    # Run with default stdio transport for now
     mcp.run()
