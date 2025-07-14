@@ -3,26 +3,24 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 import json
 
-from mcp import MCPServer, tool
+from mcp.server.fastmcp import FastMCP
 from .yahoo_client import YahooFinanceClient
 
-class StockDataServer(MCPServer):
-    """MCP server for stock market data from Yahoo Finance."""
+# Initialize FastMCP instance
+mcp = FastMCP("stock_data")
+
+# Initialize Yahoo Finance client at module level
+yf_client = YahooFinanceClient()
     
-    def __init__(self):
-        super().__init__(name="stock_data", port=5001)
-        self.yf_client = YahooFinanceClient()
-    
-    @tool(description="Fetch stock price and volume data")
-    async def get_price(
-        self, 
-        symbol: str, 
-        period: str = "1mo",
-        interval: str = "1d"
-    ) -> Dict[str, Any]:
+@mcp.tool(description="Fetch stock price and volume data")
+async def get_price(
+    symbol: str, 
+    period: str = "1mo",
+    interval: str = "1d"
+) -> Dict[str, Any]:
         """Get historical price data for a stock."""
         try:
-            data = await self.yf_client.get_historical(symbol, period, interval)
+            data = await yf_client.get_historical(symbol, period, interval)
             
             # Convert to serializable format
             price_data = []
@@ -74,11 +72,11 @@ class StockDataServer(MCPServer):
                 "timestamp": datetime.now().isoformat()
             }
     
-    @tool(description="Get company fundamentals")
-    async def get_fundamentals(self, symbol: str) -> Dict[str, Any]:
+@mcp.tool(description="Get company fundamentals")
+async def get_fundamentals(symbol: str) -> Dict[str, Any]:
         """Get fundamental data for a company."""
         try:
-            info = await self.yf_client.get_info(symbol)
+            info = await yf_client.get_info(symbol)
             
             # Extract key fundamentals
             fundamentals = {
@@ -130,20 +128,19 @@ class StockDataServer(MCPServer):
                 "timestamp": datetime.now().isoformat()
             }
     
-    @tool(description="Get financial statements")
-    async def get_financials(
-        self,
-        symbol: str,
-        statement_type: str = "income"
-    ) -> Dict[str, Any]:
+@mcp.tool(description="Get financial statements")
+async def get_financials(
+    symbol: str,
+    statement_type: str = "income"
+) -> Dict[str, Any]:
         """Get financial statements for a company."""
         try:
             if statement_type == "income":
-                data = await self.yf_client.get_income_statement(symbol)
+                data = await yf_client.get_income_statement(symbol)
             elif statement_type == "balance":
-                data = await self.yf_client.get_balance_sheet(symbol)
+                data = await yf_client.get_balance_sheet(symbol)
             elif statement_type == "cashflow":
-                data = await self.yf_client.get_cashflow(symbol)
+                data = await yf_client.get_cashflow(symbol)
             else:
                 raise ValueError(f"Invalid statement type: {statement_type}")
             
@@ -173,5 +170,4 @@ class StockDataServer(MCPServer):
             }
 
 if __name__ == "__main__":
-    server = StockDataServer()
-    asyncio.run(server.start())
+    mcp.run()

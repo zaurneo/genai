@@ -4,47 +4,45 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from mcp import MCPServer, tool
+from mcp.server.fastmcp import FastMCP
 from ..stock_data_server.yahoo_client import YahooFinanceClient
 
-class TechnicalAnalysisServer(MCPServer):
-    """MCP server for technical analysis calculations."""
+# Initialize FastMCP instance
+mcp = FastMCP("technical_analysis")
+
+# Initialize Yahoo Finance client at module level
+yf_client = YahooFinanceClient()
     
-    def __init__(self):
-        super().__init__(name="technical_analysis", port=5002)
-        self.yf_client = YahooFinanceClient()
-    
-    @tool(description="Calculate technical indicators")
-    async def calculate_indicators(
-        self,
-        symbol: str,
-        indicators: List[str],
-        period: str = "3mo"
-    ) -> Dict[str, Any]:
+@mcp.tool(description="Calculate technical indicators")
+async def calculate_indicators(
+    symbol: str,
+    indicators: List[str],
+    period: str = "3mo"
+) -> Dict[str, Any]:
         """Calculate various technical indicators for a stock."""
         try:
             # Get price data
-            data = await self.yf_client.get_historical(symbol, period)
+            data = await yf_client.get_historical(symbol, period)
             
             results = {}
             
             for indicator in indicators:
                 if indicator.lower() == "sma":
-                    results["sma"] = self._calculate_sma(data)
+                    results["sma"] = _calculate_sma(data)
                 elif indicator.lower() == "ema":
-                    results["ema"] = self._calculate_ema(data)
+                    results["ema"] = _calculate_ema(data)
                 elif indicator.lower() == "rsi":
-                    results["rsi"] = self._calculate_rsi(data)
+                    results["rsi"] = _calculate_rsi(data)
                 elif indicator.lower() == "macd":
-                    results["macd"] = self._calculate_macd(data)
+                    results["macd"] = _calculate_macd(data)
                 elif indicator.lower() == "bollinger":
-                    results["bollinger"] = self._calculate_bollinger(data)
+                    results["bollinger"] = _calculate_bollinger(data)
                 elif indicator.lower() == "stochastic":
-                    results["stochastic"] = self._calculate_stochastic(data)
+                    results["stochastic"] = _calculate_stochastic(data)
             
             # Add current values and signals
             current_close = float(data['Close'].iloc[-1])
-            signals = self._generate_signals(results, current_close)
+            signals = _generate_signals(results, current_close)
             
             return {
                 "symbol": symbol.upper(),
@@ -64,7 +62,7 @@ class TechnicalAnalysisServer(MCPServer):
                 "timestamp": datetime.now().isoformat()
             }
     
-    def _calculate_sma(self, data: pd.DataFrame, periods: List[int] = [20, 50, 200]) -> Dict[str, Any]:
+def _calculate_sma(self, data: pd.DataFrame, periods: List[int] = [20, 50, 200]) -> Dict[str, Any]:
         """Calculate Simple Moving Averages."""
         sma_data = {}
         
@@ -78,7 +76,7 @@ class TechnicalAnalysisServer(MCPServer):
         
         return sma_data
     
-    def _calculate_ema(self, data: pd.DataFrame, periods: List[int] = [12, 26]) -> Dict[str, Any]:
+def _calculate_ema(self, data: pd.DataFrame, periods: List[int] = [12, 26]) -> Dict[str, Any]:
         """Calculate Exponential Moving Averages."""
         ema_data = {}
         
@@ -92,7 +90,7 @@ class TechnicalAnalysisServer(MCPServer):
         
         return ema_data
     
-    def _calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+def _calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
         """Calculate Relative Strength Index."""
         delta = data['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -110,7 +108,7 @@ class TechnicalAnalysisServer(MCPServer):
             "oversold": current_rsi < 30
         }
     
-    def _calculate_macd(self, data: pd.DataFrame) -> Dict[str, Any]:
+def _calculate_macd(self, data: pd.DataFrame) -> Dict[str, Any]:
         """Calculate MACD indicator."""
         ema_12 = data['Close'].ewm(span=12, adjust=False).mean()
         ema_26 = data['Close'].ewm(span=26, adjust=False).mean()
@@ -136,7 +134,7 @@ class TechnicalAnalysisServer(MCPServer):
             "bearish_crossover": float(macd_line.iloc[-1]) < float(signal_line.iloc[-1]) and float(macd_line.iloc[-2]) >= float(signal_line.iloc[-2])
         }
     
-    def _calculate_bollinger(self, data: pd.DataFrame, period: int = 20, std_dev: int = 2) -> Dict[str, Any]:
+def _calculate_bollinger(self, data: pd.DataFrame, period: int = 20, std_dev: int = 2) -> Dict[str, Any]:
         """Calculate Bollinger Bands."""
         sma = data['Close'].rolling(window=period).mean()
         std = data['Close'].rolling(window=period).std()
@@ -163,7 +161,7 @@ class TechnicalAnalysisServer(MCPServer):
             "percent_b": float((current_price - lower_band.iloc[-1]) / (upper_band.iloc[-1] - lower_band.iloc[-1]))
         }
     
-    def _calculate_stochastic(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+def _calculate_stochastic(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
         """Calculate Stochastic Oscillator."""
         low_min = data['Low'].rolling(window=period).min()
         high_max = data['High'].rolling(window=period).max()
@@ -184,7 +182,7 @@ class TechnicalAnalysisServer(MCPServer):
             "oversold": float(k_percent.iloc[-1]) < 20
         }
     
-    def _generate_signals(self, indicators: Dict[str, Any], current_price: float) -> Dict[str, Any]:
+def _generate_signals(self, indicators: Dict[str, Any], current_price: float) -> Dict[str, Any]:
         """Generate trading signals based on indicators."""
         signals = {
             "overall": "neutral",
@@ -235,25 +233,24 @@ class TechnicalAnalysisServer(MCPServer):
         
         return signals
     
-    @tool(description="Analyze chart patterns and trends")
-    async def analyze_patterns(
-        self,
-        symbol: str,
-        period: str = "6mo"
-    ) -> Dict[str, Any]:
+@mcp.tool(description="Analyze chart patterns and trends")
+async def analyze_patterns(
+    symbol: str,
+    period: str = "6mo"
+) -> Dict[str, Any]:
         """Identify chart patterns and analyze trends."""
         try:
             # Get price data
-            data = await self.yf_client.get_historical(symbol, period)
+            data = await yf_client.get_historical(symbol, period)
             
             # Calculate support and resistance levels
-            support_resistance = self._find_support_resistance(data)
+            support_resistance = _find_support_resistance(data)
             
             # Analyze trend
-            trend_analysis = self._analyze_trend(data)
+            trend_analysis = _analyze_trend(data)
             
             # Identify patterns
-            patterns = self._identify_patterns(data)
+            patterns = _identify_patterns(data)
             
             return {
                 "symbol": symbol.upper(),
@@ -273,7 +270,7 @@ class TechnicalAnalysisServer(MCPServer):
                 "timestamp": datetime.now().isoformat()
             }
     
-    def _find_support_resistance(self, data: pd.DataFrame) -> Dict[str, Any]:
+def _find_support_resistance(self, data: pd.DataFrame) -> Dict[str, Any]:
         """Find support and resistance levels."""
         # Simple implementation using recent highs and lows
         highs = data['High'].rolling(window=20).max()
@@ -292,7 +289,7 @@ class TechnicalAnalysisServer(MCPServer):
             "nearest_support": max([s for s in support_levels if s < current_price], default=None)
         }
     
-    def _analyze_trend(self, data: pd.DataFrame) -> Dict[str, Any]:
+def _analyze_trend(self, data: pd.DataFrame) -> Dict[str, Any]:
         """Analyze price trend."""
         closes = data['Close']
         
@@ -318,7 +315,7 @@ class TechnicalAnalysisServer(MCPServer):
             "sma_alignment": "bullish" if float(sma_20.iloc[-1]) > float(sma_50.iloc[-1]) else "bearish"
         }
     
-    def _identify_patterns(self, data: pd.DataFrame) -> List[Dict[str, Any]]:
+def _identify_patterns(self, data: pd.DataFrame) -> List[Dict[str, Any]]:
         """Identify common chart patterns."""
         patterns = []
         
@@ -347,19 +344,18 @@ class TechnicalAnalysisServer(MCPServer):
         
         return patterns
     
-    @tool(description="Compare performance between multiple stocks")
-    async def compare_performance(
-        self,
-        symbols: List[str],
-        period: str = "1y",
-        metrics: List[str] = ["returns", "volatility", "sharpe"]
-    ) -> Dict[str, Any]:
+@mcp.tool(description="Compare performance between multiple stocks")
+async def compare_performance(
+    symbols: List[str],
+    period: str = "1y",
+    metrics: List[str] = ["returns", "volatility", "sharpe"]
+) -> Dict[str, Any]:
         """Compare performance metrics between multiple stocks."""
         try:
             comparison_data = {}
             
             for symbol in symbols:
-                data = await self.yf_client.get_historical(symbol, period)
+                data = await yf_client.get_historical(symbol, period)
                 
                 # Calculate returns
                 returns = data['Close'].pct_change().dropna()
@@ -395,7 +391,7 @@ class TechnicalAnalysisServer(MCPServer):
             
             # Calculate correlations
             if len(symbols) > 1:
-                correlation_matrix = await self._calculate_correlations(symbols, period)
+                correlation_matrix = await _calculate_correlations(symbols, period)
                 comparison_data["correlations"] = correlation_matrix
             
             return {
@@ -414,12 +410,12 @@ class TechnicalAnalysisServer(MCPServer):
                 "timestamp": datetime.now().isoformat()
             }
     
-    async def _calculate_correlations(self, symbols: List[str], period: str) -> Dict[str, Dict[str, float]]:
+async def _calculate_correlations(symbols: List[str], period: str) -> Dict[str, Dict[str, float]]:
         """Calculate correlation matrix between stocks."""
         price_data = {}
         
         for symbol in symbols:
-            data = await self.yf_client.get_historical(symbol, period)
+            data = await yf_client.get_historical(symbol, period)
             price_data[symbol] = data['Close']
         
         # Create DataFrame and calculate correlations
@@ -436,5 +432,4 @@ class TechnicalAnalysisServer(MCPServer):
         return result
 
 if __name__ == "__main__":
-    server = TechnicalAnalysisServer()
-    asyncio.run(server.start())
+    mcp.run()
