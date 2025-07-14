@@ -1,0 +1,144 @@
+servers:
+  stock_data:
+    host: localhost
+    port: 5001
+    description: "Yahoo Finance data provider"
+    
+  technical_analysis:
+    host: localhost
+    port: 5002
+    description: "Technical analysis calculations"
+
+tools:
+  stock_data.get_price:
+    id: "stock_data.get_price"
+    server: "stock_data"
+    description: "Fetch current and historical stock prices with volume data"
+    category: "market_data"
+    capabilities: 
+      - "real_time"
+      - "historical"
+      - "intraday"
+      - "volume"
+    parameters:
+      symbol: 
+        type: "string"
+        description: "Stock ticker symbol"
+        required: true
+      period:
+        type: "string"
+        description: "Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)"
+        default: "1mo"
+      interval:
+        type: "string"
+        description: "Data interval (1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo)"
+        default: "1d"
+    cost: 0.1
+    
+  stock_data.get_fundamentals:
+    id: "stock_data.get_fundamentals"
+    server: "stock_data"
+    description: "Get company fundamentals including PE ratio, market cap, earnings"
+    category: "fundamental_data"
+    capabilities: 
+      - "earnings"
+      - "balance_sheet"
+      - "ratios"
+      - "dividends"
+    parameters:
+      symbol:
+        type: "string"
+        description: "Stock ticker symbol"
+        required: true
+    cost: 0.2
+    
+  stock_data.get_financials:
+    id: "stock_data.get_financials"
+    server: "stock_data"
+    description: "Get detailed financial statements"
+    category: "fundamental_data"
+    capabilities:
+      - "income_statement"
+      - "balance_sheet"
+      - "cash_flow"
+    parameters:
+      symbol:
+        type: "string"
+        description: "Stock ticker symbol"
+        required: true
+      statement_type:
+        type: "string"
+        description: "Type of statement (income, balance, cashflow)"
+        default: "income"
+    cost: 0.25
+    
+  technical.calculate_indicators:
+    id: "technical.calculate_indicators"
+    server: "technical_analysis"
+    description: "Calculate technical indicators like SMA, EMA, RSI, MACD"
+    category: "technical_analysis"
+    capabilities: 
+      - "sma"
+      - "ema"
+      - "rsi"
+      - "macd"
+      - "bollinger"
+      - "stochastic"
+    parameters:
+      symbol:
+        type: "string"
+        description: "Stock ticker symbol"
+        required: true
+      indicators:
+        type: "array"
+        description: "List of indicators to calculate"
+        required: true
+      period:
+        type: "string"
+        description: "Historical period for calculations"
+        default: "3mo"
+    cost: 0.15
+    
+  technical.analyze_patterns:
+    id: "technical.analyze_patterns"
+    server: "technical_analysis"
+    description: "Identify chart patterns and trends"
+    category: "technical_analysis"
+    capabilities:
+      - "support_resistance"
+      - "trend_analysis"
+      - "pattern_recognition"
+    parameters:
+      symbol:
+        type: "string"
+        description: "Stock ticker symbol"
+        required: true
+      period:
+        type: "string"
+        description: "Analysis period"
+        default: "6mo"
+    cost: 0.3
+    
+  technical.compare_performance:
+    id: "technical.compare_performance"
+    server: "technical_analysis"
+    description: "Compare performance between multiple stocks"
+    category: "comparison"
+    capabilities:
+      - "relative_performance"
+      - "correlation_analysis"
+      - "sector_comparison"
+    parameters:
+      symbols:
+        type: "array"
+        description: "List of stock symbols to compare"
+        required: true
+      period:
+        type: "string"
+        description: "Comparison period"
+        default: "1y"
+      metrics:
+        type: "array"
+        description: "Metrics to compare"
+        default: ["returns", "volatility", "sharpe"]
+    cost: 0.2

@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  stock_data_server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    environment:
+      - MCP_SERVER=stock_data
+      - PORT=5001
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./tools/mcp_servers/stock_data_server:/app
+
+  technical_server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    environment:
+      - MCP_SERVER=technical_analysis
+      - PORT=5002
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./tools/mcp_servers/technical_server:/app
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      - LLM_PROVIDER=${LLM_PROVIDER}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - MCP_STOCK_DATA_URL=stock_data_server:5001
+      - MCP_TECHNICAL_URL=technical_server:5002
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - stock_data_server
+      - technical_server
+    volumes:
+      - ./agent:/app/agent
+      - ./tools:/app/tools
+      - ./ui/api:/app/ui/api
+
+  frontend:
+    build:
+      context: ./ui/frontend
+      dockerfile: Dockerfile
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  redis_data:
