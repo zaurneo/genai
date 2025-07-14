@@ -13,13 +13,14 @@ class ToolRequest(BaseModel):
     method: str
     params: Dict[str, Any]
     id: int = 1
+    jsonrpc: Optional[str] = None
 
 class ToolResponse(BaseModel):
     result: Dict[str, Any]
     id: int = 1
 
 @app.post("/mcp/")
-async def handle_mcp_request(request: ToolRequest) -> ToolResponse:
+async def handle_mcp_request(request: ToolRequest) -> Dict[str, Any]:
     """Handle MCP tool requests"""
     try:
         # Map method names to functions
@@ -30,19 +31,39 @@ async def handle_mcp_request(request: ToolRequest) -> ToolResponse:
             "get_price": get_price,
             "get_fundamentals": get_fundamentals,
             "get_financials": get_financials,
+            "stock_data.get_price": get_price,
+            "stock_data.get_fundamentals": get_fundamentals,
+            "stock_data.get_financials": get_financials,
         }
         
         method_name = request.method
         if method_name not in tool_map:
-            raise HTTPException(status_code=404, detail=f"Method {method_name} not found")
+            # Try extracting just the method name
+            if '.' in method_name:
+                method_name = method_name.split('.')[-1]
+        
+        if method_name not in tool_map:
+            return {
+                "error": {"code": -32601, "message": f"Method {request.method} not found"},
+                "id": request.id
+            }
         
         # Call the tool function
         result = await tool_map[method_name](**request.params)
         
-        return ToolResponse(result=result, id=request.id)
+        # Return JSON-RPC format response
+        return {
+            "jsonrpc": "2.0",
+            "result": result,
+            "id": request.id
+        }
     
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "jsonrpc": "2.0",
+            "error": {"code": -32603, "message": str(e)},
+            "id": request.id
+        }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5001)

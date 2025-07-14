@@ -96,11 +96,22 @@ class GenesisAgent:
     
     async def create_execution_plan(self, query: str, tools: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Create an execution plan for the tools."""
+        # Extract tool metadata safely
+        tool_metadata = []
+        
+        if isinstance(tools, dict):
+            for tool_id, tool in tools.items():
+                if hasattr(tool, 'metadata'):
+                    tool_metadata.append(tool.metadata)
+                else:
+                    # Fallback: use the tool_id as minimal metadata
+                    tool_metadata.append({"tool_id": tool_id, "description": f"Tool: {tool_id}"})
+        
         prompt = f"""
         Create an execution plan for the following query using the available tools:
         
         Query: {query}
-        Available Tools: {json.dumps([t.metadata for t in tools.values()], indent=2)}
+        Available Tools: {json.dumps(tool_metadata, indent=2)}
         Context: {json.dumps(context, indent=2)}
         
         Return a JSON array of steps, each with:
@@ -121,14 +132,23 @@ class GenesisAgent:
         """Execute the plan and collect results."""
         results = {}
         
+        # Handle both plan formats: direct list or dict with 'steps' key
+        if isinstance(plan, dict) and 'steps' in plan:
+            plan_steps = plan['steps']
+        elif isinstance(plan, list):
+            plan_steps = plan
+        else:
+            logger.error(f"Invalid plan format: {type(plan)}")
+            return {"error": "Invalid plan format"}
+        
         # Group steps by dependency level
-        dependency_levels = self._group_by_dependencies(plan)
+        dependency_levels = self._group_by_dependencies(plan_steps)
         
         # Execute each level in parallel
         for level in dependency_levels:
             level_tasks = []
             for step_idx in level:
-                step = plan[step_idx]
+                step = plan_steps[step_idx]
                 task = self._execute_step(step, results)
                 level_tasks.append(task)
             

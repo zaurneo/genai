@@ -3,6 +3,9 @@ import json
 from datetime import datetime
 import redis
 import hashlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ContextManager:
     """Manages conversation context and history."""
@@ -16,12 +19,18 @@ class ContextManager:
     
     def get_context(self, conversation_id: str) -> Dict[str, Any]:
         """Retrieve context for a conversation."""
+        context = None
+        
         if hasattr(self, 'redis_client'):
             data = self.redis_client.get(f"context:{conversation_id}")
             if data:
-                return json.loads(data)
+                context = json.loads(data)
         else:
-            return self.memory_store.get(conversation_id, {})
+            context = self.memory_store.get(conversation_id)
+        
+        # Return context if found, otherwise return default context
+        if context:
+            return context
         
         # Return empty context if not found
         return {
