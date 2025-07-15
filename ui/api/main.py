@@ -7,19 +7,22 @@ import logging
 import os
 
 from agent.genesis_agent import GenesisAgent
+from agent.enhanced_context_manager import EnhancedContextManager
 from ui.api.models import ChatRequest, ChatResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global agent instance
+# Global agent and context manager instances
 agent = None
+context_manager = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global agent
+    global agent, context_manager
     agent = GenesisAgent(llm_provider=os.getenv("LLM_PROVIDER", "openai"))
+    context_manager = EnhancedContextManager()
     logger.info("Genesis Agent initialized")
     yield
     # Shutdown

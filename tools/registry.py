@@ -148,6 +148,7 @@ def get_tool_descriptions_for_prompt():
     for tool_key, tool_info in TOOL_REGISTRY.items():
         desc = f"""
 Tool: {tool_key}
+Tool ID: {tool_info['id']}
 Description: {tool_info['description']}
 When to use: {tool_info['when_to_use']}
 Examples: {', '.join(tool_info['examples'][:2])}

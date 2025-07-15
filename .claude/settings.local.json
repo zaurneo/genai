@@ -13,7 +13,10 @@
       "Bash(where python)",
       "Bash(rm:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(grep:*)",
+      "Bash(unzip:*)",
+      "Bash(true)"
     ],
     "deny": []
   }

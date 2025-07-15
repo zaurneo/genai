@@ -5,9 +5,21 @@ from pathlib import Path
 from functools import lru_cache
 import logging
 import os
+import sys
 
 from tools.mcp_client import MCPClient, RemoteTool
-from tools.registry import TOOL_REGISTRY, TOOL_CATEGORIES, get_tools_by_category
+
+# Import from the registry.py file to avoid circular imports
+import importlib.util
+
+registry_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'registry.py')
+spec = importlib.util.spec_from_file_location("tools_registry", registry_file)
+registry_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(registry_module)
+
+TOOL_REGISTRY = registry_module.TOOL_REGISTRY
+TOOL_CATEGORIES = registry_module.TOOL_CATEGORIES
+get_tools_by_category = registry_module.get_tools_by_category
 
 logger = logging.getLogger(__name__)
 

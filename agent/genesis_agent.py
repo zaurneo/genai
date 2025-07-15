@@ -5,9 +5,10 @@ from datetime import datetime
 import logging
 
 from agent.llm_adapter import LLMAdapter
-from agent.context_manager import ContextManager
-from tools.registry.dynamic_loader import DynamicToolRegistry
+from agent.enhanced_context_manager import EnhancedContextManager
+from tools.registry.enhanced_dynamic_loader import EnhancedDynamicToolRegistry
 from tools.mcp_client import MCPClient
+from tools.registry import TOOL_REGISTRY, get_tool_descriptions_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +17,8 @@ class GenesisAgent:
     
     def __init__(self, llm_provider: str = "openai"):
         self.llm_adapter = LLMAdapter(provider=llm_provider)
-        self.tool_registry = DynamicToolRegistry()
-        self.context_manager = ContextManager()
+        self.tool_registry = EnhancedDynamicToolRegistry()
+        self.context_manager = EnhancedContextManager()
         self.mcp_client = MCPClient()
     
     async def process_request(self, query: str, conversation_id: str) -> Dict[str, Any]:
@@ -25,21 +26,27 @@ class GenesisAgent:
         try:
             # 1. Load conversation context
             context = self.context_manager.get_context(conversation_id)
+            context['conversation_id'] = conversation_id
             
-            # 2. Analyze intent and determine required tools
-            intent = await self.analyze_intent(query, context)
-            required_tools = await self.determine_tools(intent)
+            # 2. Analyze query and select tools using the registry
+            analysis = await self.analyze_intent(query, context)
+            required_tools = await self.determine_tools(analysis)
             
-            # 3. Load tools dynamically via MCP
-            tools = await self.tool_registry.load_tools(required_tools)
-            
-            # 4. Create and execute plan
-            plan = await self.create_execution_plan(query, tools, context)
-            results = await self.execute_plan(plan)
-            
-            # 5. Update context and return response
-            self.context_manager.update(conversation_id, query, results)
-            response = await self.format_response(results)
+            # 3. If tools are needed, load and execute them
+            if required_tools:
+                tools = await self.tool_registry.load_tools(required_tools)
+                
+                # 4. Create and execute plan with selected tools
+                plan = await self.create_execution_plan(query, tools, context, analysis)
+                results = await self.execute_plan(plan)
+                
+                # 5. Update context with execution details
+                self._update_context_from_execution(conversation_id, analysis, results)
+                response = await self.format_response(results)
+            else:
+                # No tools needed - return a direct response
+                response = "I can help you analyze stocks, view technical indicators, check fundamentals, and compare companies. What would you like to know?"
+                results = {"no_tools_used": True}
             
             return {
                 "response": response,
@@ -55,18 +62,57 @@ class GenesisAgent:
                 "error": True
             }
     
+    def get_system_prompt(self, context: Dict[str, Any]) -> str:
+        """Generate system prompt with tool registry information."""
+        tool_descriptions = get_tool_descriptions_for_prompt()
+        context_summary = self.context_manager.get_conversation_summary(context.get('conversation_id', ''))
+        
+        return f"""
+You are Genesis Assistant, a financial analysis expert. You help users with stock market analysis,
+technical indicators, and financial data.
+
+AVAILABLE TOOLS:
+{tool_descriptions}
+
+CURRENT CONTEXT:
+- Last analyzed entity: {context_summary.get('last_entity', 'None')}
+- Previous tool used: {context_summary.get('last_tool', 'None')}
+- Recent entities: {context_summary.get('recent_entities', [])}
+
+INSTRUCTIONS:
+1. Analyze user queries carefully and match them to available tools
+2. Use tools ONLY when they clearly match the user's request
+3. For ambiguous requests, consider the context to infer intent
+4. If no tools match, explain your capabilities instead
+"""
+
     async def analyze_intent(self, query: str, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze user intent using LLM."""
+        """Analyze query and select appropriate tools using the registry."""
         prompt = f"""
-        Analyze the following query and determine the user's intent:
-        
-        Query: {query}
-        Context: {json.dumps(context, indent=2)}
-        
-        Return a JSON object with:
-        - intent: main purpose (analyze_stock, compare_stocks, technical_analysis, etc.)
-        - entities: extracted entities (stock symbols, time periods, indicators)
-        - confidence: confidence score (0-1)
+{self.get_system_prompt(context)}
+
+User Query: {query}
+
+Analyze this query and determine:
+1. What tools (if any) should be used to answer this query
+2. What parameters each tool needs
+3. Your reasoning for the selection
+
+Return a JSON object with:
+{{
+    "tools_to_use": [
+        {{
+            "tool_key": "tool_name_from_registry",
+            "tool_id": "actual_tool_id",
+            "parameters": {{}},
+            "reason": "why this tool is needed"
+        }}
+    ],
+    "reasoning": "overall reasoning for tool selection",
+    "entities": {{"symbols": [], "time_period": null, "indicators": []}}
+}}
+
+If no tools are needed, set tools_to_use to an empty array.
         """
         
         response = await self.llm_adapter.complete(
@@ -78,23 +124,18 @@ class GenesisAgent:
         return json.loads(response)
     
     async def determine_tools(self, intent: Dict[str, Any]) -> List[str]:
-        """Determine which tools are needed based on intent."""
-        intent_to_tools = {
-            "analyze_stock": ["stock_data.get_price", "stock_data.get_fundamentals", "technical.calculate_indicators"],
-            "compare_stocks": ["stock_data.get_price", "stock_data.get_fundamentals", "technical.compare_performance"],
-            "technical_analysis": ["stock_data.get_price", "technical.calculate_indicators", "technical.analyze_patterns"],
-            "fundamental_analysis": ["stock_data.get_fundamentals", "stock_data.get_financials"]
-        }
+        """Extract tool IDs from the analysis result."""
+        tools_to_use = intent.get('tools_to_use', [])
+        tool_ids = []
         
-        base_tools = intent_to_tools.get(intent["intent"], ["stock_data.get_price"])
+        for tool_config in tools_to_use:
+            tool_id = tool_config.get('tool_id')
+            if tool_id:
+                tool_ids.append(tool_id)
         
-        # Add specific tools based on entities
-        if "indicators" in intent.get("entities", {}):
-            base_tools.append("technical.calculate_indicators")
-        
-        return list(set(base_tools))
+        return tool_ids
     
-    async def create_execution_plan(self, query: str, tools: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def create_execution_plan(self, query: str, tools: Dict[str, Any], context: Dict[str, Any], analysis: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Create an execution plan for the tools."""
         # Extract tool metadata safely
         tool_metadata = []
@@ -214,6 +255,24 @@ class GenesisAgent:
         
         return substitute(parameters)
     
+    def _update_context_from_execution(self, conversation_id: str, analysis: Dict[str, Any], results: Dict[str, Any]):
+        """Update context based on what was executed."""
+        updates = {}
+        
+        # Extract entities from the analysis
+        entities = analysis.get('entities', {})
+        if 'symbols' in entities and entities['symbols']:
+            updates['last_entity'] = entities['symbols'][0]
+            updates['recent_entities'] = entities['symbols']
+        
+        # Track tool usage
+        tools_used = analysis.get('tools_to_use', [])
+        if tools_used:
+            updates['last_tool'] = tools_used[0].get('tool_key')
+        
+        # Update the context
+        self.context_manager.update(conversation_id, analysis.get('query', ''), updates)
+    
     async def format_response(self, results: Dict[str, Any]) -> str:
         """Format the results into a human-readable response."""
         prompt = f"""
@@ -234,30 +293,46 @@ class GenesisAgent:
     
     async def process_request_stream(self, query: str, conversation_id: str):
         """Process request with streaming response."""
-        # Similar to process_request but yields chunks
         context = self.context_manager.get_context(conversation_id)
+        context['conversation_id'] = conversation_id
         
-        # Yield status updates
         yield {"type": "status", "message": "Analyzing your query..."}
         
-        intent = await self.analyze_intent(query, context)
-        yield {"type": "status", "message": "Loading required tools..."}
+        analysis = await self.analyze_intent(query, context)
+        required_tools = await self.determine_tools(analysis)
         
-        required_tools = await self.determine_tools(intent)
-        tools = await self.tool_registry.load_tools(required_tools)
-        
-        yield {"type": "status", "message": "Creating execution plan..."}
-        plan = await self.create_execution_plan(query, tools, context)
-        
-        yield {"type": "status", "message": "Executing analysis..."}
-        results = await self.execute_plan(plan)
-        
-        # Stream the formatted response
-        async for chunk in self.llm_adapter.complete_stream(
-            await self._create_format_prompt(results),
-            temperature=0.7
-        ):
-            yield {"type": "content", "chunk": chunk}
-        
-        # Update context
-        self.context_manager.update(conversation_id, query, results)
+        if required_tools:
+            yield {"type": "status", "message": f"Using {len(required_tools)} tools to gather data..."}
+            
+            tools = await self.tool_registry.load_tools(required_tools)
+            
+            yield {"type": "status", "message": "Creating execution plan..."}
+            plan = await self.create_execution_plan(query, tools, context, analysis)
+            
+            yield {"type": "status", "message": "Executing analysis..."}
+            results = await self.execute_plan(plan)
+            
+            # Update context
+            self._update_context_from_execution(conversation_id, analysis, results)
+            
+            # Stream the formatted response
+            prompt = await self._create_format_prompt(results)
+            async for chunk in self.llm_adapter.complete_stream(prompt, temperature=0.7):
+                yield {"type": "content", "chunk": chunk}
+        else:
+            # No tools needed - yield direct response
+            yield {"type": "content", "chunk": "I can help you analyze stocks, view technical indicators, check fundamentals, and compare companies. What would you like to know?"}
+    
+    async def _create_format_prompt(self, results: Dict[str, Any]) -> str:
+        """Create a prompt for formatting the results."""
+        return f"""
+Format the following analysis results into a clear, professional response:
+
+Results: {json.dumps(results, indent=2)}
+
+Guidelines:
+- Be concise and focus on the key findings
+- Use specific numbers and data points
+- Format numbers appropriately (e.g., $45.23, +2.5%)
+- Provide actionable insights where relevant
+"""
