@@ -64,7 +64,7 @@ async def calculate_indicators(
                 "timestamp": datetime.now().isoformat()
             }
     
-def _calculate_sma(self, data: pd.DataFrame, periods: List[int] = [20, 50, 200]) -> Dict[str, Any]:
+def _calculate_sma(data: pd.DataFrame, periods: List[int] = [20, 50, 200]) -> Dict[str, Any]:
         """Calculate Simple Moving Averages."""
         sma_data = {}
         
@@ -78,7 +78,7 @@ def _calculate_sma(self, data: pd.DataFrame, periods: List[int] = [20, 50, 200])
         
         return sma_data
     
-def _calculate_ema(self, data: pd.DataFrame, periods: List[int] = [12, 26]) -> Dict[str, Any]:
+def _calculate_ema(data: pd.DataFrame, periods: List[int] = [12, 26]) -> Dict[str, Any]:
         """Calculate Exponential Moving Averages."""
         ema_data = {}
         
@@ -92,7 +92,7 @@ def _calculate_ema(self, data: pd.DataFrame, periods: List[int] = [12, 26]) -> D
         
         return ema_data
     
-def _calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+def _calculate_rsi(data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
         """Calculate Relative Strength Index."""
         delta = data['Close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -110,7 +110,7 @@ def _calculate_rsi(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]
             "oversold": current_rsi < 30
         }
     
-def _calculate_macd(self, data: pd.DataFrame) -> Dict[str, Any]:
+def _calculate_macd(data: pd.DataFrame) -> Dict[str, Any]:
         """Calculate MACD indicator."""
         ema_12 = data['Close'].ewm(span=12, adjust=False).mean()
         ema_26 = data['Close'].ewm(span=26, adjust=False).mean()
@@ -136,7 +136,7 @@ def _calculate_macd(self, data: pd.DataFrame) -> Dict[str, Any]:
             "bearish_crossover": float(macd_line.iloc[-1]) < float(signal_line.iloc[-1]) and float(macd_line.iloc[-2]) >= float(signal_line.iloc[-2])
         }
     
-def _calculate_bollinger(self, data: pd.DataFrame, period: int = 20, std_dev: int = 2) -> Dict[str, Any]:
+def _calculate_bollinger(data: pd.DataFrame, period: int = 20, std_dev: int = 2) -> Dict[str, Any]:
         """Calculate Bollinger Bands."""
         sma = data['Close'].rolling(window=period).mean()
         std = data['Close'].rolling(window=period).std()
@@ -163,7 +163,7 @@ def _calculate_bollinger(self, data: pd.DataFrame, period: int = 20, std_dev: in
             "percent_b": float((current_price - lower_band.iloc[-1]) / (upper_band.iloc[-1] - lower_band.iloc[-1]))
         }
     
-def _calculate_stochastic(self, data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
+def _calculate_stochastic(data: pd.DataFrame, period: int = 14) -> Dict[str, Any]:
         """Calculate Stochastic Oscillator."""
         low_min = data['Low'].rolling(window=period).min()
         high_max = data['High'].rolling(window=period).max()
@@ -184,7 +184,7 @@ def _calculate_stochastic(self, data: pd.DataFrame, period: int = 14) -> Dict[st
             "oversold": float(k_percent.iloc[-1]) < 20
         }
     
-def _generate_signals(self, indicators: Dict[str, Any], current_price: float) -> Dict[str, Any]:
+def _generate_signals(indicators: Dict[str, Any], current_price: float) -> Dict[str, Any]:
         """Generate trading signals based on indicators."""
         signals = {
             "overall": "neutral",
@@ -272,7 +272,7 @@ async def analyze_patterns(
                 "timestamp": datetime.now().isoformat()
             }
     
-def _find_support_resistance(self, data: pd.DataFrame) -> Dict[str, Any]:
+def _find_support_resistance(data: pd.DataFrame) -> Dict[str, Any]:
         """Find support and resistance levels."""
         # Simple implementation using recent highs and lows
         highs = data['High'].rolling(window=20).max()
@@ -291,7 +291,7 @@ def _find_support_resistance(self, data: pd.DataFrame) -> Dict[str, Any]:
             "nearest_support": max([s for s in support_levels if s < current_price], default=None)
         }
     
-def _analyze_trend(self, data: pd.DataFrame) -> Dict[str, Any]:
+def _analyze_trend(data: pd.DataFrame) -> Dict[str, Any]:
         """Analyze price trend."""
         closes = data['Close']
         
@@ -317,7 +317,7 @@ def _analyze_trend(self, data: pd.DataFrame) -> Dict[str, Any]:
             "sma_alignment": "bullish" if float(sma_20.iloc[-1]) > float(sma_50.iloc[-1]) else "bearish"
         }
     
-def _identify_patterns(self, data: pd.DataFrame) -> List[Dict[str, Any]]:
+def _identify_patterns(data: pd.DataFrame) -> List[Dict[str, Any]]:
         """Identify common chart patterns."""
         patterns = []
         
