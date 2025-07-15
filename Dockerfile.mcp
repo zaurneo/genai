@@ -17,10 +17,13 @@ COPY tools /app/tools
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
-ENV MCP_SERVER=""
-ENV PORT=""
 
-# Create entrypoint script with proper formatting
-RUN printf '#!/bin/bash\nif [ "$MCP_SERVER" = "stock_data" ]; then\n    exec python -m tools.mcp_servers.stock_data_http_server\nelif [ "$MCP_SERVER" = "technical_analysis" ]; then\n    exec python -m tools.mcp_servers.technical_http_server\nelse\n    echo "Error: MCP_SERVER environment variable not set"\n    exit 1\nfi\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
-
-CMD ["/app/entrypoint.sh"]
+# Use shell form of CMD to handle conditional logic
+CMD if [ "$MCP_SERVER" = "stock_data" ]; then \
+        python -m tools.mcp_servers.stock_data_http_server; \
+    elif [ "$MCP_SERVER" = "technical_analysis" ]; then \
+        python -m tools.mcp_servers.technical_http_server; \
+    else \
+        echo "Error: MCP_SERVER environment variable not set"; \
+        exit 1; \
+    fi

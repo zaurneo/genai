@@ -61,4 +61,4 @@ def clean_all():
     print("Cleanup process complete!")
 
 if __name__ == "__main__":
-    delete_pycache_folders()
+    clean_all()
