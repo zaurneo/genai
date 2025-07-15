@@ -10,7 +10,8 @@
       "WebFetch(domain:github.com)",
       "Bash(pip show:*)",
       "Bash(pip install:*)",
-      "Bash(where python)"
+      "Bash(where python)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

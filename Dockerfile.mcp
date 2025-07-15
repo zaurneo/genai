@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy MCP server code
+COPY tools/mcp_servers /app
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV MCP_SERVER=""
+ENV PORT=""
+
+# Run the appropriate HTTP server based on MCP_SERVER env var
+CMD if [ "$MCP_SERVER" = "stock_data" ]; then \
+        python -m stock_data_http_server; \
+    elif [ "$MCP_SERVER" = "technical_analysis" ]; then \
+        python -m technical_http_server; \
+    else \
+        echo "Error: MCP_SERVER environment variable not set"; \
+        exit 1; \
+    fi
