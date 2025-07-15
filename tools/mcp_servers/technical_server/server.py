@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from mcp.server.fastmcp import FastMCP
-from ..stock_data_server.yahoo_client import YahooFinanceClient
+from tools.mcp_servers.stock_data_server.yahoo_client import YahooFinanceClient
 
 print("Initializing Technical Analysis Server...")
 

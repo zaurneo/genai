@@ -4,8 +4,8 @@ import json
 from datetime import datetime
 import logging
 
-from .llm_adapter import LLMAdapter
-from .context_manager import ContextManager
+from agent.llm_adapter import LLMAdapter
+from agent.context_manager import ContextManager
 from tools.registry.dynamic_loader import DynamicToolRegistry
 from tools.mcp_client import MCPClient
 

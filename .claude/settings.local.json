@@ -11,7 +11,9 @@
       "Bash(pip show:*)",
       "Bash(pip install:*)",
       "Bash(where python)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

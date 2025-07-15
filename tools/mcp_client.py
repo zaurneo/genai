@@ -21,7 +21,9 @@ class MCPClient:
         try:
             # For HTTP transport, we don't maintain a persistent connection
             # Just verify the server is reachable
-            self.session = aiohttp.ClientSession()
+            self.session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(ssl=False)  # Disable SSL for local/Docker connections
+            )
             self.base_url = f"http://{self.host}:{self.port}/mcp/"
             self.connected = True
             logger.info(f"MCP client configured for server at {self.host}:{self.port}")

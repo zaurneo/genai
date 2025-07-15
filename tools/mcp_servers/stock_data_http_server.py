@@ -1,11 +1,15 @@
 """HTTP wrapper for Stock Data MCP Server"""
 import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import uvicorn
 
-from .stock_data_server.server import get_price, get_fundamentals, get_financials
+from tools.mcp_servers.stock_data_server.server import get_price, get_fundamentals, get_financials
 
 app = FastAPI(title="Stock Data MCP Server")
 

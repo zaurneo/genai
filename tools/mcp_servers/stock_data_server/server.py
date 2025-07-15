@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import json
 
 from mcp.server.fastmcp import FastMCP
-from .yahoo_client import YahooFinanceClient
+from tools.mcp_servers.stock_data_server.yahoo_client import YahooFinanceClient
 
 print("Initializing Stock Data Server...")
 

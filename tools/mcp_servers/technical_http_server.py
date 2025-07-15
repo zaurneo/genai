@@ -1,11 +1,15 @@
 """HTTP wrapper for Technical Analysis MCP Server"""
 import asyncio
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 import uvicorn
 
-from .technical_server.server import calculate_indicators, analyze_patterns, compare_performance
+from tools.mcp_servers.technical_server.server import calculate_indicators, analyze_patterns, compare_performance
 
 app = FastAPI(title="Technical Analysis MCP Server")
 
