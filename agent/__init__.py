@@ -1,5 +1,9 @@
-from agent.genesis_agent import GenesisAgent
+from agent.enhanced_genesis_agent import EnhancedGenesisAgent
 from agent.llm_adapter import LLMAdapter
-from agent.context_manager import ContextManager
+from agent.enhanced_context_manager import EnhancedContextManager
 
-__all__ = ['GenesisAgent', 'LLMAdapter', 'ContextManager']
+# Aliases for backward compatibility
+GenesisAgent = EnhancedGenesisAgent
+ContextManager = EnhancedContextManager
+
+__all__ = ['EnhancedGenesisAgent', 'LLMAdapter', 'EnhancedContextManager']

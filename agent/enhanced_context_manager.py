@@ -290,3 +290,50 @@ class EnhancedContextManager:
             "topic": context['conversation']['topic'],
             "interaction_count": context['metadata']['interaction_count']
         }
+    
+    def add_message(self, conversation_id: str, message: Dict[str, Any]):
+        """Add a message to the conversation history."""
+        context = self.get_context(conversation_id)
+        
+        # Add timestamp if not present
+        if 'timestamp' not in message:
+            message['timestamp'] = datetime.now().isoformat()
+        
+        # Add to messages
+        context['messages'].append(message)
+        
+        # Update metadata
+        context['metadata']['last_updated'] = datetime.now().isoformat()
+        context['metadata']['interaction_count'] += 1
+        
+        # Save context
+        self.update(conversation_id, "", context)
+    
+    def track_entity(self, conversation_id: str, entity_type: str, entity_value: str):
+        """Track an entity in the conversation."""
+        context = self.get_context(conversation_id)
+        
+        # Update last entity
+        context['entities']['last_entity'] = entity_value
+        
+        # Add to recent entities (handle deque)
+        if isinstance(context['entities']['recent_entities'], deque):
+            context['entities']['recent_entities'].append(entity_value)
+        else:
+            context['entities']['recent_entities'] = deque(context['entities']['recent_entities'], maxlen=10)
+            context['entities']['recent_entities'].append(entity_value)
+        
+        # Track in entity history
+        if entity_value not in context['entities']['entity_history']:
+            context['entities']['entity_history'][entity_value] = {
+                'type': entity_type,
+                'first_seen': datetime.now().isoformat(),
+                'last_seen': datetime.now().isoformat(),
+                'count': 0
+            }
+        
+        context['entities']['entity_history'][entity_value]['count'] += 1
+        context['entities']['entity_history'][entity_value]['last_seen'] = datetime.now().isoformat()
+        
+        # Save context
+        self.update(conversation_id, "", context)
