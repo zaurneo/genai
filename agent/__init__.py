@@ -1,5 +1,5 @@
-from .genesis_agent import GenesisAgent
-from .llm_adapter import LLMAdapter
-from .context_manager import ContextManager
+from agent.genesis_agent import GenesisAgent
+from agent.llm_adapter import LLMAdapter
+from agent.context_manager import ContextManager
 
 __all__ = ['GenesisAgent', 'LLMAdapter', 'ContextManager']

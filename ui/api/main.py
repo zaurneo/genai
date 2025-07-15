@@ -7,7 +7,7 @@ import logging
 import os
 
 from agent.genesis_agent import GenesisAgent
-from .models import ChatRequest, ChatResponse
+from ui.api.models import ChatRequest, ChatResponse
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
