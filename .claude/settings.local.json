@@ -24,7 +24,8 @@
       "Bash(docker exec:*)",
       "Bash(docker cp:*)",
       "Bash(docker-compose restart:*)",
-      "Bash(docker restart:*)"
+      "Bash(docker restart:*)",
+      "Bash(docker-compose:*)"
     ],
     "deny": []
   }

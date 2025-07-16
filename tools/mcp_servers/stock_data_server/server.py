@@ -5,6 +5,7 @@ import json
 
 from mcp.server.fastmcp import FastMCP
 from tools.mcp_servers.stock_data_server.yahoo_client import YahooFinanceClient
+from tools.mcp_servers.stock_data_server.formatters import formatter
 
 print("Initializing Stock Data Server...")
 
@@ -55,7 +56,8 @@ async def get_price(
                     "avg_volume": sum(p["volume"] for p in price_data) / len(price_data)
                 }
             
-            return {
+            # Create response data
+            response_data = {
                 "symbol": symbol.upper(),
                 "period": period,
                 "interval": interval,
@@ -67,11 +69,20 @@ async def get_price(
                     "data_points": len(price_data)
                 }
             }
+            
+            # Format human-readable response
+            context = {"symbol": symbol, "period": period}
+            formatted_response = formatter.format_response(response_data, context)
+            response_data["formatted"] = formatted_response
+            
+            return response_data
         except Exception as e:
+            context = {"symbol": symbol, "period": period}
             return {
                 "error": str(e),
                 "symbol": symbol,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "formatted": formatter.format_error(str(e), context)
             }
     
 @mcp.tool(description="Get company fundamentals")
@@ -114,20 +125,32 @@ async def get_fundamentals(symbol: str) -> Dict[str, Any]:
                 "employees": info.get("fullTimeEmployees")
             }
             
-            return {
+            # Create response data
+            response_data = {
                 "symbol": symbol.upper(),
                 "fundamentals": fundamentals,
                 "company": company_info,
+                "company_info": company_info,  # Add for formatter compatibility
+                "key_metrics": fundamentals,    # Add for formatter compatibility
                 "metadata": {
                     "source": "yahoo_finance",
                     "timestamp": datetime.now().isoformat()
                 }
             }
+            
+            # Format human-readable response
+            context = {"symbol": symbol}
+            formatted_response = formatter.format_response(response_data, context)
+            response_data["formatted"] = formatted_response
+            
+            return response_data
         except Exception as e:
+            context = {"symbol": symbol}
             return {
                 "error": str(e),
                 "symbol": symbol,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "formatted": formatter.format_error(str(e), context)
             }
     
 @mcp.tool(description="Get financial statements")
@@ -154,21 +177,40 @@ async def get_financials(
                     statement[key] = float(value) if value is not None else None
                 statements.append(statement)
             
-            return {
+            # Create response data structure matching formatter expectations
+            financial_data = {}
+            if statement_type == "income":
+                financial_data["income_statement"] = statements[0] if statements else {}
+            elif statement_type == "balance":
+                financial_data["balance_sheet"] = statements[0] if statements else {}
+            elif statement_type == "cashflow":
+                financial_data["cash_flow"] = statements[0] if statements else {}
+            
+            response_data = {
                 "symbol": symbol.upper(),
                 "statement_type": statement_type,
                 "data": statements,
+                "financial_data": financial_data,  # Add for formatter compatibility
                 "metadata": {
                     "source": "yahoo_finance",
                     "timestamp": datetime.now().isoformat(),
                     "periods": len(statements)
                 }
             }
+            
+            # Format human-readable response
+            context = {"symbol": symbol, "statement_type": statement_type}
+            formatted_response = formatter.format_response(response_data, context)
+            response_data["formatted"] = formatted_response
+            
+            return response_data
         except Exception as e:
+            context = {"symbol": symbol, "statement_type": statement_type}
             return {
                 "error": str(e),
                 "symbol": symbol,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "formatted": formatter.format_error(str(e), context)
             }
 
 if __name__ == "__main__":

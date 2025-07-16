@@ -98,8 +98,21 @@ class EnhancedGenesisAgent:
             - "symbols" (use "symbol" instead)
             - "time_period" (use "period" instead)
             
-            Example correct parameters for stock_analyzer:
-            {{"symbol": "AAPL", "period": "1d"}}
+            IMPORTANT DATE HANDLING:
+            When entities.time_period contains a specific date (like "10 March 2024"):
+            - Use an appropriate period that will include that date
+            - For dates within last month: use "1mo"
+            - For dates within last 3 months: use "3mo"  
+            - For dates within last 6 months: use "6mo"
+            - For dates within last year: use "1y"
+            - For older dates: use "2y", "5y", or "max"
+            
+            Example parameters:
+            - Current price: {{"symbol": "AAPL", "period": "1d"}}
+            - Date "10 March 2024" (assuming current date is after): {{"symbol": "AAPL", "period": "1y"}}
+            - Recent date: {{"symbol": "AAPL", "period": "1mo"}}
+            
+            ALWAYS use the entities.time_period value to determine the appropriate period!
             
             Available tools with descriptions:
             {tool_descriptions}
@@ -309,6 +322,7 @@ class EnhancedGenesisAgent:
                 transformed['period'] = params['period']
             else:
                 transformed['period'] = '1mo'  # default
+            
                 
             logger.debug(f"Transformed parameters for {tool_name}: {params} -> {transformed}")
             return transformed
@@ -376,8 +390,8 @@ class EnhancedGenesisAgent:
                 # 6. Update context
                 self._update_context_from_execution(conversation_id, intent_analysis, results)
                 
-                # 7. Format response
-                response = await self.format_response(results, intent_analysis)
+                # 7. Format response - pass the original query context
+                response = await self.format_response(results, intent_analysis, query)
             else:
                 # No tools needed - return a direct response
                 response = self._get_no_tools_response(intent_analysis)
@@ -454,30 +468,35 @@ class EnhancedGenesisAgent:
         for symbol in intent.entities.symbols:
             self.context_manager.track_entity(conversation_id, "stock", symbol)
     
-    async def format_response(self, results: Dict[str, Any], intent: IntentAnalysis) -> str:
+    async def format_response(self, results: Dict[str, Any], intent: IntentAnalysis, original_query: str = None) -> str:
         """Format the execution results into a user-friendly response."""
         if results.get("no_tools_used"):
             return results.get("response", "I can help you with stock analysis.")
         
         # Build response from results
         response_parts = []
+        needs_llm_formatting = False
         
         for step in results.get("steps_executed", []):
             if "error" in step:
                 response_parts.append(f"Error with {step['tool']}: {step['error']}")
             else:
-                # Format based on tool type
-                tool_name = step["tool"]
                 result = step["result"]
                 
-                if tool_name == "stock_analyzer":
-                    response_parts.append(self._format_stock_analysis(result))
-                elif tool_name == "technical_indicators":
-                    response_parts.append(self._format_technical_analysis(result))
-                elif tool_name == "fundamental_analyzer":
-                    response_parts.append(self._format_fundamental_analysis(result))
+                # Check if tool provided formatted response
+                if "formatted" in result:
+                    response_parts.append(result["formatted"])
+                else:
+                    # Tool didn't provide formatting, we'll need LLM help
+                    needs_llm_formatting = True
+                    response_parts.append(json.dumps(result, indent=2))
         
-        return "\n\n".join(response_parts)
+        # If all tools provided formatting, return the combined response
+        if not needs_llm_formatting:
+            return "\n\n".join(response_parts)
+        
+        # Otherwise, use LLM to format the response
+        return await self._format_with_llm(response_parts, original_query)
     
     def _get_no_tools_response(self, intent: IntentAnalysis) -> str:
         """Generate response when no tools are needed."""
@@ -489,17 +508,25 @@ class EnhancedGenesisAgent:
         
         return responses.get(intent.intent, responses["unknown"])
     
-    def _format_stock_analysis(self, data: Dict[str, Any]) -> str:
-        """Format stock analysis results."""
-        return f"Stock Analysis: {json.dumps(data, indent=2)}"
-    
-    def _format_technical_analysis(self, data: Dict[str, Any]) -> str:
-        """Format technical analysis results."""
-        return f"Technical Indicators: {json.dumps(data, indent=2)}"
-    
-    def _format_fundamental_analysis(self, data: Dict[str, Any]) -> str:
-        """Format fundamental analysis results."""
-        return f"Fundamental Analysis: {json.dumps(data, indent=2)}"
+    async def _format_with_llm(self, response_parts: List[str], original_query: str) -> str:
+        """Use LLM to format complex responses when tools don't provide formatting."""
+        formatting_prompt = f"""
+        The user asked: "{original_query}"
+        
+        Here are the results from various tools:
+        {chr(10).join(response_parts)}
+        
+        Please format this information into a clear, human-readable response for the user.
+        Focus on the key information they asked for, and present it in a conversational way.
+        """
+        
+        try:
+            response = await self.llm_adapter.llm.ainvoke(formatting_prompt)
+            return response.content if hasattr(response, 'content') else str(response)
+        except Exception as e:
+            logger.warning(f"LLM formatting failed: {e}")
+            # Fallback to basic formatting
+            return "\n\n".join(response_parts)
     
     async def process_request_stream(self, query: str, conversation_id: str):
         """Process request with streaming support."""

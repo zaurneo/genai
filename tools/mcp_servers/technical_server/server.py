@@ -6,6 +6,7 @@ import pandas as pd
 
 from mcp.server.fastmcp import FastMCP
 from tools.mcp_servers.stock_data_server.yahoo_client import YahooFinanceClient
+from tools.mcp_servers.technical_server.formatters import formatter
 
 print("Initializing Technical Analysis Server...")
 
@@ -46,10 +47,35 @@ async def calculate_indicators(
             current_close = float(data['Close'].iloc[-1])
             signals = _generate_signals(results, current_close)
             
-            return {
+            # Create response data with proper structure for formatter
+            indicator_data = {}
+            for name, values in results.items():
+                if name == "rsi":
+                    indicator_data[name] = {"value": values.get("current", 0)}
+                elif name == "macd":
+                    indicator_data[name] = {
+                        "macd": values.get("macd_line", {}).get("current", 0),
+                        "signal": values.get("signal_line", {}).get("current", 0),
+                        "histogram": values.get("histogram", {}).get("current", 0)
+                    }
+                elif name == "bollinger":
+                    indicator_data[name] = {
+                        "upper": values.get("upper_band", {}).get("current", 0),
+                        "middle": values.get("middle_band", {}).get("current", 0),
+                        "lower": values.get("lower_band", {}).get("current", 0)
+                    }
+                elif name == "stochastic":
+                    indicator_data[name] = {
+                        "k": values.get("k_line", {}).get("current", 0),
+                        "d": values.get("d_line", {}).get("current", 0)
+                    }
+                elif name in ["sma", "ema"]:
+                    indicator_data[name] = values
+            
+            response_data = {
                 "symbol": symbol.upper(),
                 "period": period,
-                "indicators": results,
+                "indicators": indicator_data,
                 "current_price": current_close,
                 "signals": signals,
                 "metadata": {
@@ -57,11 +83,20 @@ async def calculate_indicators(
                     "timestamp": datetime.now().isoformat()
                 }
             }
+            
+            # Format response
+            context = {"symbol": symbol, "indicators": indicators}
+            formatted_response = formatter.format_response(response_data, context)
+            response_data["formatted"] = formatted_response
+            
+            return response_data
         except Exception as e:
+            context = {"symbol": symbol}
             return {
                 "error": str(e),
                 "symbol": symbol,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "formatted": formatter.format_error(str(e), context)
             }
     
 def _calculate_sma(data: pd.DataFrame, periods: List[int] = [20, 50, 200]) -> Dict[str, Any]:
@@ -254,7 +289,8 @@ async def analyze_patterns(
             # Identify patterns
             patterns = _identify_patterns(data)
             
-            return {
+            # Create response data
+            response_data = {
                 "symbol": symbol.upper(),
                 "period": period,
                 "support_resistance": support_resistance,
@@ -265,11 +301,20 @@ async def analyze_patterns(
                     "timestamp": datetime.now().isoformat()
                 }
             }
+            
+            # Format response
+            context = {"symbol": symbol, "period": period}
+            formatted_response = formatter.format_response(response_data, context)
+            response_data["formatted"] = formatted_response
+            
+            return response_data
         except Exception as e:
+            context = {"symbol": symbol}
             return {
                 "error": str(e),
                 "symbol": symbol,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "formatted": formatter.format_error(str(e), context)
             }
     
 def _find_support_resistance(data: pd.DataFrame) -> Dict[str, Any]:
@@ -396,7 +441,8 @@ async def compare_performance(
                 correlation_matrix = await _calculate_correlations(symbols, period)
                 comparison_data["correlations"] = correlation_matrix
             
-            return {
+            # Create response data
+            response_data = {
                 "symbols": symbols,
                 "period": period,
                 "comparison": comparison_data,
@@ -405,11 +451,20 @@ async def compare_performance(
                     "timestamp": datetime.now().isoformat()
                 }
             }
+            
+            # Format response
+            context = {"symbols": symbols, "period": period}
+            formatted_response = formatter.format_response(response_data, context)
+            response_data["formatted"] = formatted_response
+            
+            return response_data
         except Exception as e:
+            context = {"symbols": symbols}
             return {
                 "error": str(e),
                 "symbols": symbols,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "formatted": formatter.format_error(str(e), context)
             }
     
 async def _calculate_correlations(symbols: List[str], period: str) -> Dict[str, Dict[str, float]]:
